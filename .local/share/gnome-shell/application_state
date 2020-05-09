@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
 <application-state>
   <context id="">
-    <application id="firefox.desktop" open-window-count="1" score="225" last-seen="1589042393"/>
-    <application id="org.gnome.Nautilus.desktop" open-window-count="1" score="770.5" last-seen="1589042412"/>
+    <application id="firefox.desktop" open-window-count="1" score="235" last-seen="1589043113"/>
+    <application id="gedit.desktop" open-window-count="0" score="0" last-seen="0"/>
+    <application id="org.gnome.Nautilus.desktop" open-window-count="1" score="784.5" last-seen="1589043240"/>
     <application id="update-manager.desktop" open-window-count="0" score="0" last-seen="1588583110"/>
     <application id="software-properties-gtk.desktop" open-window-count="0" score="0" last-seen="1588583106"/>
-    <application id="org.gnome.gedit.desktop" open-window-count="0" score="80" last-seen="1588583051"/>
+    <application id="org.gnome.gedit.desktop" open-window-count="0" score="80" last-seen="1589042990"/>
     <application id="sublime_text.desktop" open-window-count="0" score="21298" last-seen="1588605018"/>
-    <application id="org.gnome.Terminal.desktop" open-window-count="1" score="2763" last-seen="1589042412"/>
+    <application id="org.gnome.Terminal.desktop" open-window-count="1" score="2844" last-seen="1589043225"/>
   </context>
 </application-state>

@@ -1006,3 +1006,17 @@ cd ..
 tree
 cd Nguyen\ Ngo\ Cao\ Cuong/
 git init
+git init 
+git add .
+git commit -m"NguyenNgoCaoCuong"
+git remote add origin https://github.com/nguyengocaocuong/C-nang-cao.git
+git push -u
+git push -u origin master
+clear
+cd C
+CD c
+cd Cadv/
+ls
+git init
+git add .
+git commit -m"NAME"
