@@ -1,0 +1,126 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/compare.h
+jval.h
+../include/jval.h
+
+../include/data.h
+
+../include/handling.h
+jrb.h
+../include/jrb.h
+
+../include/input.h
+jrb.h
+../include/jrb.h
+jval.h
+../include/jval.h
+
+../include/menu.h
+
+../include/output.h
+jrb.h
+../include/jrb.h
+
+../libfdr/fields.h
+stdio.h
+-
+
+../libfdr/jrb.h
+jval.h
+../libfdr/jval.h
+
+../libfdr/jval.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/compare.c
+string.h
+-
+compare.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/compare.h
+data.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/data.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/handling.c
+stdio.h
+-
+stdio_ext.h
+-
+stdlib.h
+-
+handling.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/handling.h
+data.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/data.h
+jrb.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/jrb.h
+jval.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/jval.h
+compare.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/compare.h
+output.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/output.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/input.c
+string.h
+-
+stdio_ext.h
+-
+stdlib.h
+-
+jrb.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/jrb.h
+fields.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/fields.h
+input.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/input.h
+data.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/data.h
+jval.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/jval.h
+compare.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/compare.h
+output.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/output.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/mainapp.c
+stdio.h
+-
+menu.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/menu.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/menu.c
+stdio.h
+-
+stdio_ext.h
+-
+data.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/data.h
+jrb.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/jrb.h
+menu.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/menu.h
+input.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/input.h
+output.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/output.h
+handling.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/handling.h
+compare.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/compare.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/output.c
+stdio.h
+-
+output.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/output.h
+jrb.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/jrb.h
+data.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/phonBook_rbTree/src/data.h
+

@@ -1,0 +1,1 @@
+/usr/bin/cc    CMakeFiles/test1.dir/src/mainapp.c.o CMakeFiles/test1.dir/src/vn.c.o CMakeFiles/test1.dir/src/ja.c.o CMakeFiles/test1.dir/src/chose.c.o  -o test1 

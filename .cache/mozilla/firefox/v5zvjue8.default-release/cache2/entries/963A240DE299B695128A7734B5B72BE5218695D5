@@ -1,0 +1,1208 @@
+// from http://www.dyve.net/jquery/?autocomplete
+// to
+//   http://www.pengoworks.com/workshop/jquery/autocomplete.htm
+// and
+//   http://just-tech.blogspot.com/2006/12/jquery-tweaking-auto-complete-plugin.html
+// mixed here, with a few fixes.
+//
+// see respective pages for list of features and documentation
+jQuery.autocomplete = function(input, options) {
+	// Create a link to self
+	var me = this;
+
+	// Create jQuery object for input element
+	var $input = $(input).attr("autocomplete", "off");
+
+	// Apply inputClass if necessary
+	if (options.inputClass) $input.addClass(options.inputClass);
+
+	// Create results
+	var results = document.createElement("div");
+	// Create jQuery object for results
+	var $results = $(results);
+	$results.hide().addClass(options.resultsClass).css("position", "absolute");
+	if( options.width > 0 ) $results.css("width", options.width);
+
+	// Add to body element
+	$("body").append(results);
+
+	input.autocompleter = me;
+	input.lastSelected = $input.val();
+
+	var timeout = null;
+	var prev = "";
+	var active = -1;
+	var cache = {};
+	var keyb = false;
+	var hasFocus = false;
+	var lastKeyPressCode = null;
+
+	// flush cache
+	function flushCache(){
+		//console.log('flushCache!!!');
+		cache = {};
+		cache.data = {};
+		cache.length = 0;
+	};
+
+	// flush cache
+	flushCache();
+
+	// if there is a data array supplied
+	if( options.data != null ){
+		var sFirstChar = "", stMatchSets = {}, row = [];
+
+		// no url was specified, we need to adjust the cache length to make sure it fits the local data store
+		if( typeof options.url != "string" ) options.cacheLength = 1;
+
+		// loop through the array and create a lookup structure
+		for( var i=0; i < options.data.length; i++ ){
+			// if row is a string, make an array otherwise just reference the array
+			row = ((typeof options.data[i] == "string") ? [options.data[i]] : options.data[i]);
+
+			// if the length is zero, don't add to list
+			if( row[0].length > 0 ){
+				// get the first character
+				sFirstChar = row[0].substring(0, 1).toLowerCase();
+				// if no lookup array for this character exists, look it up now
+				if( !stMatchSets[sFirstChar] ) stMatchSets[sFirstChar] = [];
+				// if the match is a string
+				stMatchSets[sFirstChar].push(row);
+			}
+		}
+
+		// add the data items to the cache
+		for( var k in stMatchSets ){
+			// increase the cache size
+			options.cacheLength++;
+			// add to the cache
+			addToCache(k, stMatchSets[k]);
+		}
+	}
+
+	$input
+	.keydown(function(e) {
+		//console.log('keywown:', e.keyCode);
+		// track last key pressed
+		lastKeyPressCode = e.keyCode;
+		switch(e.keyCode) {
+			case 38: // up
+				e.preventDefault();
+				moveSelect(-1);
+				break;
+			case 40: // down
+				e.preventDefault();
+				moveSelect(1);
+				break;
+			case 9:  // tab
+			case 13: // return
+				if( selectCurrent() ){
+					// make sure to blur off the current field
+					//$input.get(0).blur();
+					e.preventDefault();
+				}
+				break;
+			default:
+				active = -1;
+				if (timeout) clearTimeout(timeout);
+				timeout = setTimeout(function(){onChange();}, options.delay);
+				break;
+		}
+	})
+	.focus(function(){
+		// track whether the field has focus, we shouldn't process any results if the field no longer has focus
+		hasFocus = true;
+	})
+	.blur(function() {
+		// track whether the field has focus
+		hasFocus = false;
+		hideResults();
+	});
+
+	hideResultsNow();
+
+	function onChange() {
+		//console.log('onChange');
+		// ignore if the following keys are pressed: [del] [shift] [capslock]
+		if( lastKeyPressCode == 46 || (lastKeyPressCode > 8 && lastKeyPressCode < 32) ) return $results.hide();
+		var v = $input.val();
+		if (v == prev) return;
+		prev = v;
+		v = getWordQueried(v);
+		if (v.length >= options.minChars) {
+			$input.addClass(options.loadingClass);
+			requestData(v);
+		} else {
+			$input.removeClass(options.loadingClass);
+			$results.hide();
+		}
+	};
+
+ 	function moveSelect(step) {
+		//console.log('moveSelect');
+
+		var lis = $("li", results);
+		if (!lis) return;
+
+		active += step;
+
+		if (active < 0) {
+			active = 0;
+		} else if (active >= lis.size()) {
+			active = lis.size() - 1;
+		}
+
+		lis.removeClass("ac_over");
+
+		$(lis[active]).addClass("ac_over");
+
+		// Weird behaviour in IE
+		// if (lis[active] && lis[active].scrollIntoView) {
+		// 	lis[active].scrollIntoView(false);
+		// }
+
+	};
+
+	function selectCurrent() {
+		//console.log('selectCurrent');
+		var li = $("li.ac_over", results)[0];
+		if (!li) {
+			var $li = $("li", results);
+			if (options.selectOnly) {
+				if ($li.length == 1) li = $li[0];
+			} else if (options.selectFirst) {
+				li = $li[0];
+			}
+		}
+		if (li) {
+			selectItem(li);
+			return true;
+		} else {
+			return false;
+		}
+	};
+
+	function selectItem(li) {
+		//console.log('selectItem');
+		if (!li) {
+			li = document.createElement("li");
+			li.extra = [];
+			li.selectValue = "";
+		}
+		var v = $.trim(li.selectValue ? li.selectValue : li.innerHTML);
+		input.lastSelected = v;
+		prev = v;
+		$results.html("");
+
+		if (options.mode == "multiple") {
+			old_value = $input.val();
+			if (old_value.lastIndexOf(options.multipleSeparator) >= 1) {
+				sep_pos = old_value.lastIndexOf(options.multipleSeparator);
+				sep_pos += options.multipleSeparator.length-1;
+				value = old_value.substr(0, sep_pos+1);
+				new_value = value + v + options.multipleSeparator;
+			} else {
+				new_value = v + options.multipleSeparator;
+			}
+		} else {
+			new_value = v;
+		}
+		$input.val(new_value);
+		hideResultsNow();
+		if (options.onItemSelect) setTimeout(function() { options.onItemSelect(li) }, 1);
+	};
+
+	// selects a portion of the input string
+	function createSelection(start, end){
+		//console.log('createSelection', start, end);
+		// get a reference to the input element
+		var field = $input.get(0);
+		if( field.createTextRange ){
+			var selRange = field.createTextRange();
+			selRange.collapse(true);
+			selRange.moveStart("character", start);
+			selRange.moveEnd("character", end);
+			selRange.select();
+		} else if( field.setSelectionRange ){
+			field.setSelectionRange(start, end);
+		} else {
+			if( field.selectionStart ){
+				field.selectionStart = start;
+				field.selectionEnd = end;
+			}
+		}
+		field.focus();
+	};
+
+	// fills in the input box w/the first match (assumed to be the best match)
+	function autoFill(sValue){
+		//console.log('autoFill', sValue);
+		// if the last user key pressed was backspace, don't autofill
+		if( lastKeyPressCode != 8 ){
+			// fill in the value (keep the case the user has typed)
+			$input.val($input.val() + sValue.substring(prev.length));
+			// select the portion of the value not typed by the user (so the next character will erase)
+			createSelection(prev.length, sValue.length);
+		}
+	};
+
+	function showResults() {
+		//console.log('showResults');
+		// get the position of the input field right now (in case the DOM is shifted)
+		var pos = findPos(input);
+		// either use the specified width, or autocalculate based on form element
+		var iWidth = (options.width > 0) ? options.width : $input.width();
+		// reposition
+		$results.css({
+			width: parseInt(iWidth) + "px",
+			top: (pos.y + input.offsetHeight) + "px",
+			left: pos.x + "px"
+		}).show();
+	};
+
+	function hideResults() {
+		//console.log('hideResults');
+		if (timeout) clearTimeout(timeout);
+		timeout = setTimeout(hideResultsNow, 200);
+	};
+
+	function hideResultsNow() {
+		//console.log('hideResultsNow');
+		if (timeout) clearTimeout(timeout);
+		$input.removeClass(options.loadingClass);
+		if ($results.is(":visible")) {
+			$results.hide();
+		}
+		if (options.mustMatch) {
+			var v = $input.val();
+			if (v != input.lastSelected) {
+				selectItem(null);
+			}
+		}
+	};
+
+	function receiveData(q, data) {
+		//console.log('receiveData:', q, data);
+		if (data) {
+			$input.removeClass(options.loadingClass);
+			results.innerHTML = "";
+
+			// if the field no longer has focus or if there are no matches, do not display the drop down
+			if( !hasFocus || data.length == 0 ) return hideResultsNow();
+
+			if ($.browser.msie) {
+				// we put a styled iframe behind the calendar so HTML SELECT elements don't show through
+				$results.append(document.createElement('iframe'));
+			}
+			results.appendChild(dataToDom(data));
+			// autofill in the complete box w/the first match as long as the user hasn't entered in more data
+			if( options.autoFill && ($input.val().toLowerCase() == q.toLowerCase()) ) autoFill(data[0][0]);
+			showResults();
+		} else {
+			hideResultsNow();
+		}
+	};
+
+	function parseData(data) {
+		//console.log('parseData:',  data);
+		if (!data) return null;
+		var parsed = [];
+		var rows = data.split(options.lineSeparator);
+		for (var i=0; i < rows.length; i++) {
+			var row = $.trim(rows[i]);
+			if (row) {
+				parsed[parsed.length] = row.split(options.cellSeparator);
+			}
+		}
+		return parsed;
+	};
+
+	function dataToDom(data) {
+		var ul = document.createElement("ul");
+		var num = data.length;
+
+		// limited results to a max number
+		if( (options.maxItemsToShow > 0) && (options.maxItemsToShow < num) ) num = options.maxItemsToShow;
+
+		for (var i=0; i < num; i++) {
+			var row = data[i];
+			if (!row) continue;
+			var li = document.createElement("li");
+			if (options.formatItem) {
+				li.innerHTML = options.formatItem(row, i, num);
+				li.selectValue = row[0];
+			} else {
+				li.innerHTML = row[0];
+				li.selectValue = row[0];
+			}
+			var extra = null;
+			if (row.length > 1) {
+				extra = [];
+				for (var j=1; j < row.length; j++) {
+					extra[extra.length] = row[j];
+				}
+			}
+			li.extra = extra;
+			ul.appendChild(li);
+			$(li).hover(
+				function() { $("li", ul).removeClass("ac_over"); $(this).addClass("ac_over"); active = $("li", ul).indexOf($(this).get(0)); },
+				function() { $(this).removeClass("ac_over"); }
+			).click(function(e) { e.preventDefault(); e.stopPropagation(); selectItem(this) });
+		}
+		return ul;
+	};
+
+	function getWordQueried(q) {
+		if (options.mode == "multiple") {
+			if (q.lastIndexOf(options.multipleSeparator) >= 1) {
+				sep_pos = q.lastIndexOf(options.multipleSeparator);
+				q = q.substr(sep_pos+1);
+			}
+		}
+		return $.trim(q);
+	}
+
+	function requestData(q) {
+		//console.log('requestData:', q);
+		if (!options.matchCase) q = q.toLowerCase();
+		var data = options.cacheLength ? loadFromCache(q) : null;
+		// recieve the cached data
+		if (data) {
+			receiveData(q, data);
+		// if an AJAX url has been supplied, try loading the data now
+		} else if( (typeof options.url == "string") && (options.url.length > 0) ){
+			$.get(makeUrl(q), function(data) {
+				data = parseData(data);
+				if (options.rowsLimit == 0 || data.length < options.rowsLimit) {
+					addToCache(q, data);
+				}
+				receiveData(q, data);
+			});
+		// if there's been no data found, remove the loading class
+		} else {
+			$input.removeClass(options.loadingClass);
+		}
+	};
+
+	function makeUrl(q) {
+		//console.log('makeUrl:', q);
+		var url = options.url + encodeURI(q);
+		if (options.extraParams) {
+			url += '?'
+		}
+		for (var i in options.extraParams) {
+			url += "&" + i + "=" + encodeURI(options.extraParams[i]);
+		}
+		return url;
+	};
+
+	function loadFromCache(q) {
+		//console.log('loadFromCache:', q);
+		if (!q) return null;
+		if (cache.data[q]) return cache.data[q];
+		if (options.matchSubset) {
+			for (var i = q.length - 1; i >= options.minChars; i--) {
+				var qs = q.substr(0, i);
+				var c = cache.data[qs];
+				if (c) {
+					var csub = [];
+					for (var j = 0; j < c.length; j++) {
+						var x = c[j];
+						var x0 = x[0];
+						if (matchSubset(x0, q)) {
+							csub[csub.length] = x;
+						}
+					}
+					return csub;
+				}
+			}
+		}
+		return null;
+	};
+
+	function matchSubset(s, sub) {
+		//console.log('matchSubset:', s, sub);
+		if (!options.matchCase) s = s.toLowerCase();
+		var i = s.indexOf(sub);
+		if (i == -1) return false;
+		return i == 0 || options.matchContains;
+	};
+
+	this.flushCache = function() {
+		flushCache();
+	};
+
+	this.setExtraParams = function(p) {
+		options.extraParams = p;
+	};
+
+	this.findValue = function(){
+		var q = $input.val();
+		//console.log('findValue:', q);
+		q = getWordQueried(q);
+
+		if (!options.matchCase) q = q.toLowerCase();
+		var data = options.cacheLength ? loadFromCache(q) : null;
+		if (data) {
+			findValueCallback(q, data);
+		} else if( (typeof options.url == "string") && (options.url.length > 0) ){
+			$.get(makeUrl(q), function(data) {
+				data = parseData(data)
+				addToCache(q, data);
+				findValueCallback(q, data);
+			});
+		} else {
+			// no matches
+			findValueCallback(q, null);
+		}
+	}
+
+	function findValueCallback(q, data){
+		//console.log('findValueCallback:', q);
+		if (data) $input.removeClass(options.loadingClass);
+
+		var num = (data) ? data.length : 0;
+		var li = null;
+
+		for (var i=0; i < num; i++) {
+			var row = data[i];
+
+			if( row[0].toLowerCase() == q.toLowerCase() ){
+				li = document.createElement("li");
+				if (options.formatItem) {
+					li.innerHTML = options.formatItem(row, i, num);
+					li.selectValue = row[0];
+				} else {
+					li.innerHTML = row[0];
+					li.selectValue = row[0];
+				}
+				var extra = null;
+				if( row.length > 1 ){
+					extra = [];
+					for (var j=1; j < row.length; j++) {
+						extra[extra.length] = row[j];
+					}
+				}
+				li.extra = extra;
+			}
+		}
+
+		if( options.onFindValue ) setTimeout(function() { options.onFindValue(li) }, 1);
+	}
+
+	function addToCache(q, data) {
+		//console.log('addToCache:', q); //, data);
+		if (!data || !q || !options.cacheLength) return;
+		if (!cache.length || cache.length > options.cacheLength) {
+			flushCache();
+			cache.length++;
+		} else if (!cache[q]) {
+			cache.length++;
+		}
+		cache.data[q] = data;
+	};
+
+	function findPos(obj) {
+		var curleft = obj.offsetLeft || 0;
+		var curtop = obj.offsetTop || 0;
+		while (obj = obj.offsetParent) {
+			curleft += obj.offsetLeft
+			curtop += obj.offsetTop
+		}
+		return {x:curleft,y:curtop};
+	}
+}
+
+jQuery.fn.autocomplete = function(url, options, data) {
+	// Make sure options exists
+	options = options || {};
+	// Set url as option
+	options.url = url;
+	// set some bulk local data
+	options.data = ((typeof data == "object") && (data.constructor == Array)) ? data : null;
+
+	// Set default values for required options
+	options.inputClass = options.inputClass || "ac_input";
+	options.resultsClass = options.resultsClass || "ac_results";
+	options.lineSeparator = options.lineSeparator || "\n";
+	options.cellSeparator = options.cellSeparator || "|";
+	options.minChars = options.minChars || 1;
+	options.delay = options.delay || 400;
+	options.matchCase = options.matchCase || 0;
+	options.matchSubset = options.matchSubset || 1;
+	options.matchContains = options.matchContains || 0;
+	options.cacheLength = options.cacheLength || 1;
+	options.mustMatch = options.mustMatch || 0;
+	options.rowsLimit = options.rowsLimit || 0;
+	options.extraParams = options.extraParams || {};
+	options.loadingClass = options.loadingClass || "ac_loading";
+	options.selectFirst = options.selectFirst || false;
+	options.selectOnly = options.selectOnly || false;
+	options.mode = options.mode || "single";
+	options.multipleSeparator = options.multipleSeparator || ",";
+	options.maxItemsToShow = options.maxItemsToShow || -1;
+	options.autoFill = options.autoFill || false;
+	options.width = parseInt(options.width, 10) || 0;
+
+	this.each(function() {
+		var input = this;
+		new jQuery.autocomplete(input, options);
+	});
+
+	// Don't break the chain
+	return this;
+}
+
+jQuery.fn.autocompleteArray = function(data, options) {
+	return this.autocomplete(null, options, data);
+}
+
+jQuery.fn.indexOf = function(e){
+	for( var i=0; i<this.length; i++ ){
+		if( this[i] == e ) return i;
+	}
+	return -1;
+};
+        20200403170909z   '   jQuery.autocomplete   flushCache   onChange   moveSelect   selectCurrent   selectItem   li   createSelection   autoFill   showResults   hideResults   hideResultsNow   receiveData   parseData   dataToDom   ul   getWordQueried   requestData   q   makeUrl   loadFromCache   matchSubset#   findValueCallback   addToCache   findPos   timeout	   prev!   lastKeyPressCode   options   hasFocus   results   cache   $input   active   input   $results-   jQuery.fn.autocomplete7   jQuery.fn.autocompleteArray#   jQuery.fn.indexOf   jQuery   autocomplete   fn#   autocompleteArray   indexOf   url	   data   .this1   jQuery.fn.autocomplete/<   object   constructor   Array   inputClass   ac_input   resultsClass   ac_results   lineSeparator   
+   cellSeparator   |   minChars   delay   matchCase   matchContains   cacheLength   mustMatch   rowsLimit   extraParams   loadingClass   ac_loading   selectFirst   selectOnly	   mode   single#   multipleSeparator   ,   maxItemsToShow   parseInt   width	   each   k   row   i   me   stMatchSets	   keyb   sFirstChar+   jQuery.autocomplete/<G   jQuery.autocomplete/this.flushCacheO   jQuery.autocomplete/this.setExtraParamsE   jQuery.autocomplete/this.findValue   $	   attr   off   addClass   document   createElement   div	   hide   css   position   absolute	   body   append   autocompleter   val   lastSelected      string   length   substring   toLowerCase	   push   keydown   focus	   blur   setExtraParams   findValue   v   clearTimeout   removeClass   is   :visible    A<      A<           A<  // from http://www.dyve.net/jquery/?autocomplete
+// to
+//   http://www.pengoworks.com/workshop/jquery/autocomplete.htm
+// and
+//   http://just-tech.blogspot.com/2006/12/jquery-tweaking-auto-complete-plugin.html
+// mixed here, with a few fixes.
+//
+// see respective pages for list of features and documentation
+jQuery.autocomplete = function(input, options) {
+	// Create a link to self
+	var me = this;
+
+	// Create jQuery object for input element
+	var $input = $(input).attr("autocomplete", "off");
+
+	// Apply inputClass if necessary
+	if (options.inputClass) $input.addClass(options.inputClass);
+
+	// Create results
+	var results = document.createElement("div");
+	// Create jQuery object for results
+	var $results = $(results);
+	$results.hide().addClass(options.resultsClass).css("position", "absolute");
+	if( options.width > 0 ) $results.css("width", options.width);
+
+	// Add to body element
+	$("body").append(results);
+
+	input.autocompleter = me;
+	input.lastSelected = $input.val();
+
+	var timeout = null;
+	var prev = "";
+	var active = -1;
+	var cache = {};
+	var keyb = false;
+	var hasFocus = false;
+	var lastKeyPressCode = null;
+
+	// flush cache
+	function flushCache(){
+		//console.log('flushCache!!!');
+		cache = {};
+		cache.data = {};
+		cache.length = 0;
+	};
+
+	// flush cache
+	flushCache();
+
+	// if there is a data array supplied
+	if( options.data != null ){
+		var sFirstChar = "", stMatchSets = {}, row = [];
+
+		// no url was specified, we need to adjust the cache length to make sure it fits the local data store
+		if( typeof options.url != "string" ) options.cacheLength = 1;
+
+		// loop through the array and create a lookup structure
+		for( var i=0; i < options.data.length; i++ ){
+			// if row is a string, make an array otherwise just reference the array
+			row = ((typeof options.data[i] == "string") ? [options.data[i]] : options.data[i]);
+
+			// if the length is zero, don't add to list
+			if( row[0].length > 0 ){
+				// get the first character
+				sFirstChar = row[0].substring(0, 1).toLowerCase();
+				// if no lookup array for this character exists, look it up now
+				if( !stMatchSets[sFirstChar] ) stMatchSets[sFirstChar] = [];
+				// if the match is a string
+				stMatchSets[sFirstChar].push(row);
+			}
+		}
+
+		// add the data items to the cache
+		for( var k in stMatchSets ){
+			// increase the cache size
+			options.cacheLength++;
+			// add to the cache
+			addToCache(k, stMatchSets[k]);
+		}
+	}
+
+	$input
+	.keydown(function(e) {
+		//console.log('keywown:', e.keyCode);
+		// track last key pressed
+		lastKeyPressCode = e.keyCode;
+		switch(e.keyCode) {
+			case 38: // up
+				e.preventDefault();
+				moveSelect(-1);
+				break;
+			case 40: // down
+				e.preventDefault();
+				moveSelect(1);
+				break;
+			case 9:  // tab
+			case 13: // return
+				if( selectCurrent() ){
+					// make sure to blur off the current field
+					//$input.get(0).blur();
+					e.preventDefault();
+				}
+				break;
+			default:
+				active = -1;
+				if (timeout) clearTimeout(timeout);
+				timeout = setTimeout(function(){onChange();}, options.delay);
+				break;
+		}
+	})
+	.focus(function(){
+		// track whether the field has focus, we shouldn't process any results if the field no longer has focus
+		hasFocus = true;
+	})
+	.blur(function() {
+		// track whether the field has focus
+		hasFocus = false;
+		hideResults();
+	});
+
+	hideResultsNow();
+
+	function onChange() {
+		//console.log('onChange');
+		// ignore if the following keys are pressed: [del] [shift] [capslock]
+		if( lastKeyPressCode == 46 || (lastKeyPressCode > 8 && lastKeyPressCode < 32) ) return $results.hide();
+		var v = $input.val();
+		if (v == prev) return;
+		prev = v;
+		v = getWordQueried(v);
+		if (v.length >= options.minChars) {
+			$input.addClass(options.loadingClass);
+			requestData(v);
+		} else {
+			$input.removeClass(options.loadingClass);
+			$results.hide();
+		}
+	};
+
+ 	function moveSelect(step) {
+		//console.log('moveSelect');
+
+		var lis = $("li", results);
+		if (!lis) return;
+
+		active += step;
+
+		if (active < 0) {
+			active = 0;
+		} else if (active >= lis.size()) {
+			active = lis.size() - 1;
+		}
+
+		lis.removeClass("ac_over");
+
+		$(lis[active]).addClass("ac_over");
+
+		// Weird behaviour in IE
+		// if (lis[active] && lis[active].scrollIntoView) {
+		// 	lis[active].scrollIntoView(false);
+		// }
+
+	};
+
+	function selectCurrent() {
+		//console.log('selectCurrent');
+		var li = $("li.ac_over", results)[0];
+		if (!li) {
+			var $li = $("li", results);
+			if (options.selectOnly) {
+				if ($li.length == 1) li = $li[0];
+			} else if (options.selectFirst) {
+				li = $li[0];
+			}
+		}
+		if (li) {
+			selectItem(li);
+			return true;
+		} else {
+			return false;
+		}
+	};
+
+	function selectItem(li) {
+		//console.log('selectItem');
+		if (!li) {
+			li = document.createElement("li");
+			li.extra = [];
+			li.selectValue = "";
+		}
+		var v = $.trim(li.selectValue ? li.selectValue : li.innerHTML);
+		input.lastSelected = v;
+		prev = v;
+		$results.html("");
+
+		if (options.mode == "multiple") {
+			old_value = $input.val();
+			if (old_value.lastIndexOf(options.multipleSeparator) >= 1) {
+				sep_pos = old_value.lastIndexOf(options.multipleSeparator);
+				sep_pos += options.multipleSeparator.length-1;
+				value = old_value.substr(0, sep_pos+1);
+				new_value = value + v + options.multipleSeparator;
+			} else {
+				new_value = v + options.multipleSeparator;
+			}
+		} else {
+			new_value = v;
+		}
+		$input.val(new_value);
+		hideResultsNow();
+		if (options.onItemSelect) setTimeout(function() { options.onItemSelect(li) }, 1);
+	};
+
+	// selects a portion of the input string
+	function createSelection(start, end){
+		//console.log('createSelection', start, end);
+		// get a reference to the input element
+		var field = $input.get(0);
+		if( field.createTextRange ){
+			var selRange = field.createTextRange();
+			selRange.collapse(true);
+			selRange.moveStart("character", start);
+			selRange.moveEnd("character", end);
+			selRange.select();
+		} else if( field.setSelectionRange ){
+			field.setSelectionRange(start, end);
+		} else {
+			if( field.selectionStart ){
+				field.selectionStart = start;
+				field.selectionEnd = end;
+			}
+		}
+		field.focus();
+	};
+
+	// fills in the input box w/the first match (assumed to be the best match)
+	function autoFill(sValue){
+		//console.log('autoFill', sValue);
+		// if the last user key pressed was backspace, don't autofill
+		if( lastKeyPressCode != 8 ){
+			// fill in the value (keep the case the user has typed)
+			$input.val($input.val() + sValue.substring(prev.length));
+			// select the portion of the value not typed by the user (so the next character will erase)
+			createSelection(prev.length, sValue.length);
+		}
+	};
+
+	function showResults() {
+		//console.log('showResults');
+		// get the position of the input field right now (in case the DOM is shifted)
+		var pos = findPos(input);
+		// either use the specified width, or autocalculate based on form element
+		var iWidth = (options.width > 0) ? options.width : $input.width();
+		// reposition
+		$results.css({
+			width: parseInt(iWidth) + "px",
+			top: (pos.y + input.offsetHeight) + "px",
+			left: pos.x + "px"
+		}).show();
+	};
+
+	function hideResults() {
+		//console.log('hideResults');
+		if (timeout) clearTimeout(timeout);
+		timeout = setTimeout(hideResultsNow, 200);
+	};
+
+	function hideResultsNow() {
+		//console.log('hideResultsNow');
+		if (timeout) clearTimeout(timeout);
+		$input.removeClass(options.loadingClass);
+		if ($results.is(":visible")) {
+			$results.hide();
+		}
+		if (options.mustMatch) {
+			var v = $input.val();
+			if (v != input.lastSelected) {
+				selectItem(null);
+			}
+		}
+	};
+
+	function receiveData(q, data) {
+		//console.log('receiveData:', q, data);
+		if (data) {
+			$input.removeClass(options.loadingClass);
+			results.innerHTML = "";
+
+			// if the field no longer has focus or if there are no matches, do not display the drop down
+			if( !hasFocus || data.length == 0 ) return hideResultsNow();
+
+			if ($.browser.msie) {
+				// we put a styled iframe behind the calendar so HTML SELECT elements don't show through
+				$results.append(document.createElement('iframe'));
+			}
+			results.appendChild(dataToDom(data));
+			// autofill in the complete box w/the first match as long as the user hasn't entered in more data
+			if( options.autoFill && ($input.val().toLowerCase() == q.toLowerCase()) ) autoFill(data[0][0]);
+			showResults();
+		} else {
+			hideResultsNow();
+		}
+	};
+
+	function parseData(data) {
+		//console.log('parseData:',  data);
+		if (!data) return null;
+		var parsed = [];
+		var rows = data.split(options.lineSeparator);
+		for (var i=0; i < rows.length; i++) {
+			var row = $.trim(rows[i]);
+			if (row) {
+				parsed[parsed.length] = row.split(options.cellSeparator);
+			}
+		}
+		return parsed;
+	};
+
+	function dataToDom(data) {
+		var ul = document.createElement("ul");
+		var num = data.length;
+
+		// limited results to a max number
+		if( (options.maxItemsToShow > 0) && (options.maxItemsToShow < num) ) num = options.maxItemsToShow;
+
+		for (var i=0; i < num; i++) {
+			var row = data[i];
+			if (!row) continue;
+			var li = document.createElement("li");
+			if (options.formatItem) {
+				li.innerHTML = options.formatItem(row, i, num);
+				li.selectValue = row[0];
+			} else {
+				li.innerHTML = row[0];
+				li.selectValue = row[0];
+			}
+			var extra = null;
+			if (row.length > 1) {
+				extra = [];
+				for (var j=1; j < row.length; j++) {
+					extra[extra.length] = row[j];
+				}
+			}
+			li.extra = extra;
+			ul.appendChild(li);
+			$(li).hover(
+				function() { $("li", ul).removeClass("ac_over"); $(this).addClass("ac_over"); active = $("li", ul).indexOf($(this).get(0)); },
+				function() { $(this).removeClass("ac_over"); }
+			).click(function(e) { e.preventDefault(); e.stopPropagation(); selectItem(this) });
+		}
+		return ul;
+	};
+
+	function getWordQueried(q) {
+		if (options.mode == "multiple") {
+			if (q.lastIndexOf(options.multipleSeparator) >= 1) {
+				sep_pos = q.lastIndexOf(options.multipleSeparator);
+				q = q.substr(sep_pos+1);
+			}
+		}
+		return $.trim(q);
+	}
+
+	function requestData(q) {
+		//console.log('requestData:', q);
+		if (!options.matchCase) q = q.toLowerCase();
+		var data = options.cacheLength ? loadFromCache(q) : null;
+		// recieve the cached data
+		if (data) {
+			receiveData(q, data);
+		// if an AJAX url has been supplied, try loading the data now
+		} else if( (typeof options.url == "string") && (options.url.length > 0) ){
+			$.get(makeUrl(q), function(data) {
+				data = parseData(data);
+				if (options.rowsLimit == 0 || data.length < options.rowsLimit) {
+					addToCache(q, data);
+				}
+				receiveData(q, data);
+			});
+		// if there's been no data found, remove the loading class
+		} else {
+			$input.removeClass(options.loadingClass);
+		}
+	};
+
+	function makeUrl(q) {
+		//console.log('makeUrl:', q);
+		var url = options.url + encodeURI(q);
+		if (options.extraParams) {
+			url += '?'
+		}
+		for (var i in options.extraParams) {
+			url += "&" + i + "=" + encodeURI(options.extraParams[i]);
+		}
+		return url;
+	};
+
+	function loadFromCache(q) {
+		//console.log('loadFromCache:', q);
+		if (!q) return null;
+		if (cache.data[q]) return cache.data[q];
+		if (options.matchSubset) {
+			for (var i = q.length - 1; i >= options.minChars; i--) {
+				var qs = q.substr(0, i);
+				var c = cache.data[qs];
+				if (c) {
+					var csub = [];
+					for (var j = 0; j < c.length; j++) {
+						var x = c[j];
+						var x0 = x[0];
+						if (matchSubset(x0, q)) {
+							csub[csub.length] = x;
+						}
+					}
+					return csub;
+				}
+			}
+		}
+		return null;
+	};
+
+	function matchSubset(s, sub) {
+		//console.log('matchSubset:', s, sub);
+		if (!options.matchCase) s = s.toLowerCase();
+		var i = s.indexOf(sub);
+		if (i == -1) return false;
+		return i == 0 || options.matchContains;
+	};
+
+	this.flushCache = function() {
+		flushCache();
+	};
+
+	this.setExtraParams = function(p) {
+		options.extraParams = p;
+	};
+
+	this.findValue = function(){
+		var q = $input.val();
+		//console.log('findValue:', q);
+		q = getWordQueried(q);
+
+		if (!options.matchCase) q = q.toLowerCase();
+		var data = options.cacheLength ? loadFromCache(q) : null;
+		if (data) {
+			findValueCallback(q, data);
+		} else if( (typeof options.url == "string") && (options.url.length > 0) ){
+			$.get(makeUrl(q), function(data) {
+				data = parseData(data)
+				addToCache(q, data);
+				findValueCallback(q, data);
+			});
+		} else {
+			// no matches
+			findValueCallback(q, null);
+		}
+	}
+
+	function findValueCallback(q, data){
+		//console.log('findValueCallback:', q);
+		if (data) $input.removeClass(options.loadingClass);
+
+		var num = (data) ? data.length : 0;
+		var li = null;
+
+		for (var i=0; i < num; i++) {
+			var row = data[i];
+
+			if( row[0].toLowerCase() == q.toLowerCase() ){
+				li = document.createElement("li");
+				if (options.formatItem) {
+					li.innerHTML = options.formatItem(row, i, num);
+					li.selectValue = row[0];
+				} else {
+					li.innerHTML = row[0];
+					li.selectValue = row[0];
+				}
+				var extra = null;
+				if( row.length > 1 ){
+					extra = [];
+					for (var j=1; j < row.length; j++) {
+						extra[extra.length] = row[j];
+					}
+				}
+				li.extra = extra;
+			}
+		}
+
+		if( options.onFindValue ) setTimeout(function() { options.onFindValue(li) }, 1);
+	}
+
+	function addToCache(q, data) {
+		//console.log('addToCache:', q); //, data);
+		if (!data || !q || !options.cacheLength) return;
+		if (!cache.length || cache.length > options.cacheLength) {
+			flushCache();
+			cache.length++;
+		} else if (!cache[q]) {
+			cache.length++;
+		}
+		cache.data[q] = data;
+	};
+
+	function findPos(obj) {
+		var curleft = obj.offsetLeft || 0;
+		var curtop = obj.offsetTop || 0;
+		while (obj = obj.offsetParent) {
+			curleft += obj.offsetLeft
+			curtop += obj.offsetTop
+		}
+		return {x:curleft,y:curtop};
+	}
+}
+
+jQuery.fn.autocomplete = function(url, options, data) {
+	// Make sure options exists
+	options = options || {};
+	// Set url as option
+	options.url = url;
+	// set some bulk local data
+	options.data = ((typeof data == "object") && (data.constructor == Array)) ? data : null;
+
+	// Set default values for required options
+	options.inputClass = options.inputClass || "ac_input";
+	options.resultsClass = options.resultsClass || "ac_results";
+	options.lineSeparator = options.lineSeparator || "\n";
+	options.cellSeparator = options.cellSeparator || "|";
+	options.minChars = options.minChars || 1;
+	options.delay = options.delay || 400;
+	options.matchCase = options.matchCase || 0;
+	options.matchSubset = options.matchSubset || 1;
+	options.matchContains = options.matchContains || 0;
+	options.cacheLength = options.cacheLength || 1;
+	options.mustMatch = options.mustMatch || 0;
+	options.rowsLimit = options.rowsLimit || 0;
+	options.extraParams = options.extraParams || {};
+	options.loadingClass = options.loadingClass || "ac_loading";
+	options.selectFirst = options.selectFirst || false;
+	options.selectOnly = options.selectOnly || false;
+	options.mode = options.mode || "single";
+	options.multipleSeparator = options.multipleSeparator || ",";
+	options.maxItemsToShow = options.maxItemsToShow || -1;
+	options.autoFill = options.autoFill || false;
+	options.width = parseInt(options.width, 10) || 0;
+
+	this.each(function() {
+		var input = this;
+		new jQuery.autocomplete(input, options);
+	});
+
+	// Don't break the chain
+	return this;
+}
+
+jQuery.fn.autocompleteArray = function(data, options) {
+	return this.autocomplete(null, options, data);
+}
+
+jQuery.fn.indexOf = function(e){
+	for( var i=0; i<this.length; i++ ){
+		if( this[i] == e ) return i;
+	}
+	return -1;
+};
+  5   https://developer.gnome.org/js/jquery.autocomplete.js   ≥!´!á!´!ˇˇˇˇ            å!´!ç!´!     †     T  g5  L  g5   Ä	         ≥!´!å!´!ˇˇˇˇ(   "         O            P                  Q   R            	                     S   T             !      #      U            .   
+          å!´!ç!´!      †    å  È  y  È    )         ≥!´!å!´!ˇˇˇˇ               å!´!é!´!            å!´!é!´!            öò;¯   -   l   (                                       5   À   ﬁø   5   K    ﬁø   K   ﬁ§@+ `P; `Pê0 `P< P    
+     5ûå!´!ç!´!    	  †      Ô  ˇ  Ô  |        
+     5ûå!´!ç!´!    	 †      ©  Ù  ©  ç        
+     5ûå!´!ç!´!    	  †    √    ≠    ¶        
+     5ûå!´!ç!´!    	 †    (  h    h  π        
+   å!´!  †A  `  9  `  ‘   /     
+     5ûä!´!ä!´!ä!´!ä!´!ä!´!é!´!    5ûå!´!ç!´!    	 †    Æ  ◊  ñ  ◊  ÿ        
+     5ûå!´!ç!´!    	 †    8  ”  '  ”  Ó        
+     5ûå!´!ç!´!    	  † 	   Î  £  ◊  £  ˘        
+     5ûå!´!ç!´!    	  † 
+   ª  5  ß  5         
+     5ûå!´!ç!´!      †    P  z  9  z            ≥!´!å!´!ˇˇˇˇ   u             öò;¯	   v   w   C   x   y   a   @   h   i   ∆   M                                   ø   ô   ñ   º    Ä    ø   x ﬁñ   ø   ‡G   „ø   F   x ﬁø   ‡G   „   t ô   ñ   ø   ‡G   „x  ﬁñ   ø   F   ôB   ñ   ø   ‡G   „t      ﬁæ   ø   F   ô   ñ   ø    x ﬁñ   §00 `P/	`P/P9 `Pñ P4 `Pë 	P= `P,	P90 `Pî0 `P,P8 `Pô0 `P'
+P900 P     
+     5ûå!´!ç!´!    	 †    í  õ   ~  õ          
+     5ûå!´!ç!´!    	 †    ±   Î!  ü   Î!  2       
+     5ûå!´!ç!´!    	 †    "  ˜%  Ô!  ˜%  @       
+	   å!´!  †„$  X%  €$  X%  \      
+ 
+     5ûå!´!  †f%  å%  ^%  å%  ]      
+ 
+     5ûå!´! ††%  ·%  ò%  ·%  ^      
+ 
+     5ûä!´!ä!´!ä!´!ä!´!ä!´!é!´!    5ûå!´!ç!´!    	 †    &  Ë&  ˚%  Ë&  c       
+     5ûå!´!ç!´!    	 †    ˇ&  ®)  Î&  ®)  m       
+   å!´! †Ç(  *)  z(  *)  v       
+     5ûä!´!ä!´!ä!´!é!´!    5ûå!´!ç!´!    	 †    º)  ±*  ¨)  ±*  É       
+     5ûå!´!ç!´!    	 †    À*  æ,  µ*  æ,  è       
+     5ûå!´!ç!´!    	 †    ÷,  ú-  ¬,  ú-  ß       
+     5ûå!´!ç!´!    	 †    O0  R3  50  R3  Ã       
+   å!´!  †,3  J3  $3  J3  Í  /     
+     5ûä!´!ä!´!ä!´!ä!´!ä!´!ä!´!é!´!    5ûå!´!ç!´!    	 †    h3  Å4  U3  Å4  Ì       
+     5ûå!´!ç!´!    	 †    ï4  e5  Ö4  e5  ˘       
+     5ûå!´!é!´!            å!´!é!´!            å!´!ç!´!    	 †V   á	  Ì  	  Ì  T        
+   å!´!  †ª     ≥     l   !     
+     5û 5ûå!´!ç!´!    	  †V   ˇ  Ç  ˜  Ç  p        
+     5ûå!´!ç!´!    	  †V   ì  Ê  ã  Ê  t        
+     5ûå!´!ç!´!    	  †W   ∫-  —-  ≤-  —-  Ø       
+     5ûå!´!ç!´!    	 †X   Û-  .  Î-  .  ≥       
+     5ûå!´!ç!´!    	  †Y   3.  20  +.  20  ∑       
+   å!´! †ç/  Ó/  Ö/  Ó/  ¡       
+     5ûä!´!ä!´!ä!´!é!´!    5ûöò;¯#   Z   [   (   \   3   ]   ^   _   `   a   5   b   c   d   M   e   f   g   h   i   j   -   ,   k   ?   l   m   n   o   p   q   r      s   t   «  ¥                          ~    X ›   ﬁk   À   ﬁk   À    ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk	   À !  ﬁk
+   À 
+  ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁk   À   ﬁæ     ﬁº    Ä    ø   t ‡G   „      t À   ﬁø   F   ô$   ñ   ø   ‡G   „ø   F   x ﬁñ   º   ‡G   „   t À   ﬁº    Ä    ø   t À   ﬁø   ‡G	   „t  ‡G   „ø   F
+   t ‡G   „      x ﬁø   F   ô)   ñ#   ø   ‡G   „   ø   F   x ﬁñ(   º    Ä       t ‡G   „ø   x ﬁø   æ  K   ﬁø   ø   ‡G   „t  K   ﬁÀ   ﬁ   À 	  ﬁˇÀ   ﬁ5   À   ﬁ   ﬁÀ   ﬁÀ   ﬁø    x  ﬁø   F   ôƒ  ñ;         ﬁ5      ﬁe       ﬁø   F      ô   ñB   ø   K   ﬁñD      ﬁóD   æ  ø   F   J   ôı   ñI   ø   F   æ  H   ô(   ñO   e   ø   F   æ  Hf    ò   ñT   ø   F   æ  HñW      ﬁæ  HJ   ôk   ñ[   æ  H‡G   „t ‡G   „t     ﬁæ  æ  Hô   ñc   æ  æ  e    Mﬁñe   æ  æ  H‡G   „æ  x ﬁñh   æ  .‡'   ﬁﬁòˆ˛ˇˇñi   æ  [ój   \]öC   ñk   ^    ø   ‡F   .‡Â'K   ﬁﬁø    æ   æ  æ   Hx ﬁﬁò∫ˇˇˇñr   _ñr   ø   ‡G   „k   t ‡G   „k   t ‡G   „k   x ﬁø 
+   x  ﬁæ  k   K    ﬁæ  k   K!   ﬁæ  k   K"   ﬁ§ˇÓ@ 
+`PI `P/Pî PI `Pî `Pñ PI `Pë 	PI `P/P9 `P,	Pî Pî P4 `Pñ `Põ 	PI `P/P/	PD `P? `Pë PI  `P7 `P; `P8 `P; `P6 `P7 `PG.@1 `PJ4 `Pñ0 `P*`P*
+`PJ8 `Põ !`Pë@;  `P&fPû@= `P • '∑@@ `Pó@B `P/P*PHD `Pî `Pî@F `Pî PI; )`Pó@K `Pò ˇˇˇ˜DM `Pó@O `Pì 
+PDK ë@S `Pë0 POp POt PDz `PJÄ  ã@Ä  §@Ä  ∑@Ä  ’@Ä  Î@Ä  ˜@Ä @Ä @Ä @Ä 0@Ä >@Ä a@Ä Å@Ä ç@Ä •@Ä ≠00 `P?000 `P?000 `POÄ ˜@Ä P        Ì            K    5ûå!´!ç!´!     †$    ä5  ];  Ç5  ];   Ä  !      ≥!´!å!´!ˇˇˇˇ   ,      -   .          å!´!é!´!            å!´!é!´!            å!´!ç!´!      †/   Í:  0;  ‚:  0;   
+ #        ≥!´!å!´!ˇˇˇˇ   "   .             öò;¯   '   (   ,                                     ›   ﬁæ      ﬁº    F   Çæ   ø   ‚  É ﬁ§6 `P9 `Pú0 P     
+ 
+     5ûöò;¯#   ,   0   1   2   -   3   4   5   6   7   8   9   :   ;   <   =      >   ?   @   A   B   C   D   E   F   G   H   I   J   K      L   M   N   Ó  ±                            Ä    H ›    ﬁø   ú   ñ   ﬁ5   ñ   À   ﬁø   Ω  K    ﬁø   Ω    õ   ñ   ﬁΩ F   º   ñ   ô   ñ   Ω ò   ñ   ñ   K   ﬁø   ø   F   ú   ñ   ﬁ   ñ   K   ﬁø   ø   F   ú   ñ   ﬁ   ñ   K   ﬁø   ø   F	   ú   ñ    ﬁ
+   ñ    K	   ﬁø   ø   F   ú   ñ%   ﬁ   ñ%   K   ﬁø   ø   F   ú   ñ*   ﬁñ*   K   ﬁø   ø   F   ú   ñ/   ﬁêñ/   K   ﬁø   ø   F   ú   ñ4   ﬁñ4   K   ﬁø   ø   F   ú   ñ9   ﬁñ9   K   ﬁø   ø   F   ú   ñ>   ﬁñ>   K   ﬁø   ø   F   ú   ñC   ﬁñC   K   ﬁø   ø   F   ú   ñH   ﬁñH   K   ﬁø   ø   F   ú   ñM   ﬁñM   K   ﬁø   ø   F   ú   ñR   ﬁ5   ñS   K   ﬁø   ø   F   ú   ñX   ﬁ   ñX   K   ﬁø   ø   F   ú   ñ]   ﬁñ]   K   ﬁø   ø   F   ú   ñb   ﬁñb   K   ﬁø   ø   F   ú   ñg   ﬁ   ñg   K   ﬁø   ø   F   ú   ñl   ﬁ   ñl   K   ﬁø   ø   F   ú   ñq   ﬁˇñq   K   ﬁø   ø   F   ú   ñv   ﬁñv   K   ﬁø   º    Ä    ø   F!   
+t ú   ñ}   ﬁñ}   K!   ﬁæ   ‡G"   „k   x ﬁæ   °§60 `P†00 `P>0 `P%À000 `P™0 `P™0 `P™0 `P™0 `P¶0 `P®0 `P¶0 `P¶0 `P¶0 `P¶0 `P¶0 `P¶0 `P™0 `P™0 `P¶0 `P¶0 `P™0 `P™0 `Pß0 `P¶0 `Põ Pö00 `Pê PDÄ ) `P4Q   5ûå!´!ç!´!     †%   Ö;  »;  };  »;  ,  &    
+ 
+     5ûå!´!ç!´!     †&   Ê;  ?<  ﬁ;  ?<  0      
+ 
+     5ûöò;¯   '   (   )   *   +   P   #                                    º    k   K   ﬁº    F   k   K   ﬁº    F   k   K   ﬁº    F   k   K   ﬁ§@	`Pê@Ä `Pï@Ä ,`Pï0000`Pï@Ä 6P ƒ∑¯†∆      ^∂‹?^∂‹@Aß°ﬁ^∞Ñ!   6    :https://developer.gnome.org/js/jquery.autocomplete.js strongly-framed 1 security-info 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 request-method GET request-Cookie fW57TKp6nABCf62ZvycydZJDHkg= response-head HTTP/1.1 200 OK
+Date: Mon, 04 May 2020 14:09:06 GMT
+Server: Apache/2.4.34 (Red Hat) OpenSSL/1.0.2k-fips mod_wsgi/4.5.13 Python/2.7
+Last-Modified: Fri, 01 May 2020 16:22:21 GMT
+ETag: "3c41-5a49895f959df"
+Accept-Ranges: bytes
+Content-Length: 15425
+Vary: Cookie
+X-Content-Type-Options: nosniff
+Content-Type: application/javascript
+ original-response-headers Date: Mon, 04 May 2020 14:09:06 GMT
+Server: Apache/2.4.34 (Red Hat) OpenSSL/1.0.2k-fips mod_wsgi/4.5.13 Python/2.7
+Last-Modified: Fri, 01 May 2020 16:22:21 GMT
+ETag: "3c41-5a49895f959df"
+Accept-Ranges: bytes
+Content-Length: 15425
+Vary: Cookie
+X-Content-Type-Options: nosniff
+Content-Type: application/javascript
+ ctid 2 uncompressed-len 0 necko:classified 1 alt-data 1;15425,javascript/moz-bytecode-20200403170909 alt-data-from-child 1   öB

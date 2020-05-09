@@ -1,0 +1,1 @@
+/usr/bin/cc   -rdynamic CMakeFiles/test1.dir/mainapp.c.o  -o test1  -L"/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/libfdr" -Wl,-rpath,"/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/libfdr" -Wl,-Bstatic -lfdr -Wl,-Bdynamic 

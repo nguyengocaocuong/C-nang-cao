@@ -1,0 +1,52 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/dllist.c
+stdio.h
+-
+dllist.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/dllist.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/dllist.h
+jval.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jval.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/fields.c
+stdio.h
+-
+fields.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/fields.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/fields.h
+stdio.h
+-
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jrb.c
+string.h
+-
+stdio.h
+-
+stdlib.h
+-
+ctype.h
+-
+jrb.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jrb.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jrb.h
+jval.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jval.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jval.c
+stdio.h
+-
+jval.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jval.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Bai1/libfdr/jval.h
+

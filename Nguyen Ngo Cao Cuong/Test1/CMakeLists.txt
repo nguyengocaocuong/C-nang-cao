@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.10.2)
+project(test1)
+include_directories(include)
+set(SOURECS src/mainapp.c src/vn.c src/ja.c src/chose.c)
+add_executable(test1 ${SOURECS})

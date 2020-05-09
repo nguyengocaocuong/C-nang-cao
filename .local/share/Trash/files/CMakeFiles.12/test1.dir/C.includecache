@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../libfdr/dllist.h
+jval.h
+../libfdr/jval.h
+
+../libfdr/jval.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/mainapp.c
+stdio.h
+-
+dllist.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/dllist.h
+

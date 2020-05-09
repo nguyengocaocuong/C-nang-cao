@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project(testBt)
+include_directories(inc)
+file(GLOB RESOUES "src-lib/*.c")
+add_executable(testBt src-main/bt.c ${RESOUES})

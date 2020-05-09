@@ -1,0 +1,1 @@
+/usr/bin/cc   -rdynamic CMakeFiles/testBt.dir/src/main.c.o  -o testBt -Wl,-Bstatic -lbt -Wl,-Bdynamic 

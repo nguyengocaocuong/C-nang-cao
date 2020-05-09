@@ -1,0 +1,1 @@
+/usr/bin/cc   -rdynamic CMakeFiles/test.dir/src/mainapp.c.o CMakeFiles/test.dir/src/vn.c.o CMakeFiles/test.dir/src/ja.c.o CMakeFiles/test.dir/src/chose.c.o  -o test 

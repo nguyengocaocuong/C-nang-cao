@@ -1,0 +1,3 @@
+/home/nguyenngocaocuong/cuong/CMakeFiles/rebuild_cache.dir
+/home/nguyenngocaocuong/cuong/CMakeFiles/hello.dir
+/home/nguyenngocaocuong/cuong/CMakeFiles/edit_cache.dir

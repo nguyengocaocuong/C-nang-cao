@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/chose.h
+
+../include/ja.h
+
+../include/vn.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/chose.c
+stdio.h
+-
+chose.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/chose.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/ja.c
+stdio.h
+-
+ja.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/ja.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/mainapp.c
+stdio.h
+-
+chose.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/chose.h
+ja.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/ja.h
+vn.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/vn.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/Test1/src/vn.c
+stdio.h
+-
+

@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../libfdr/dllist.h
+jval.h
+../libfdr/jval.h
+
+../libfdr/fields.h
+stdio.h
+-
+
+../libfdr/jrb.h
+jval.h
+../libfdr/jval.h
+
+../libfdr/jval.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Testlibfdr/src/mainapp.c
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+jval.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Testlibfdr/src/jval.h
+dllist.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Testlibfdr/src/dllist.h
+jrb.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Testlibfdr/src/jrb.h
+fields.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Testlibfdr/src/fields.h
+

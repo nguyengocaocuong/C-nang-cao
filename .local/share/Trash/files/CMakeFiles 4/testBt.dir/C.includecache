@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../inc/bc.h
+limits.h
+-
+
+../inc/bt.h
+stdio.h
+-
+bc.h
+../inc/bc.h
+
+../inc/btree.h
+bt.h
+../inc/bt.h
+
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/btree/b_tree/src/main.c
+stdio.h
+-
+btree.h
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/btree/b_tree/src/btree.h
+

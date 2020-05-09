@@ -1,0 +1,3 @@
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/libfdr/CMakeFiles/rebuild_cache.dir
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/libfdr/CMakeFiles/fdr.dir
+/home/nguyenngocaocuong/Nguyen Ngo Cao Cuong/CAdvanced-master/Tesibdr/libfdr/CMakeFiles/edit_cache.dir

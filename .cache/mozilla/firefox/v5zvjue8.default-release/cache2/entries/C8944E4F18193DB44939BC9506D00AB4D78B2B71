@@ -1,0 +1,354 @@
+/*
+ * doctools.js
+ * ~~~~~~~~~~~
+ *
+ * Sphinx JavaScript utilities for all documentation.
+ *
+ * :copyright: Copyright 2007-2018 by the Sphinx team, see AUTHORS.
+ * :license: BSD, see LICENSE for details.
+ *
+ */
+
+/**
+ * select a different prefix for underscore
+ */
+$u = _.noConflict();
+
+/**
+ * make the code below compatible with browsers without
+ * an installed firebug like debugger
+if (!window.console || !console.firebug) {
+  var names = ["log", "debug", "info", "warn", "error", "assert", "dir",
+    "dirxml", "group", "groupEnd", "time", "timeEnd", "count", "trace",
+    "profile", "profileEnd"];
+  window.console = {};
+  for (var i = 0; i < names.length; ++i)
+    window.console[names[i]] = function() {};
+}
+ */
+
+/**
+ * small helper function to urldecode strings
+ */
+jQuery.urldecode = function(x) {
+  return decodeURIComponent(x).replace(/\+/g, ' ');
+};
+
+/**
+ * small helper function to urlencode strings
+ */
+jQuery.urlencode = encodeURIComponent;
+
+/**
+ * This function returns the parsed url parameters of the
+ * current request. Multiple values per key are supported,
+ * it will always return arrays of strings for the value parts.
+ */
+jQuery.getQueryParameters = function(s) {
+  if (typeof s === 'undefined')
+    s = document.location.search;
+  var parts = s.substr(s.indexOf('?') + 1).split('&');
+  var result = {};
+  for (var i = 0; i < parts.length; i++) {
+    var tmp = parts[i].split('=', 2);
+    var key = jQuery.urldecode(tmp[0]);
+    var value = jQuery.urldecode(tmp[1]);
+    if (key in result)
+      result[key].push(value);
+    else
+      result[key] = [value];
+  }
+  return result;
+};
+
+/**
+ * highlight a given string on a jquery object by wrapping it in
+ * span elements with the given class name.
+ */
+jQuery.fn.highlightText = function(text, className) {
+  function highlight(node, addItems) {
+    if (node.nodeType === 3) {
+      var val = node.nodeValue;
+      var pos = val.toLowerCase().indexOf(text);
+      if (pos >= 0 &&
+          !jQuery(node.parentNode).hasClass(className) &&
+          !jQuery(node.parentNode).hasClass("nohighlight")) {
+        var span;
+        var isInSVG = jQuery(node).closest("body, svg, foreignObject").is("svg");
+        if (isInSVG) {
+          span = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        } else {
+          span = document.createElement("span");
+          span.className = className;
+        }
+        span.appendChild(document.createTextNode(val.substr(pos, text.length)));
+        node.parentNode.insertBefore(span, node.parentNode.insertBefore(
+          document.createTextNode(val.substr(pos + text.length)),
+          node.nextSibling));
+        node.nodeValue = val.substr(0, pos);
+        if (isInSVG) {
+          var bbox = span.getBBox();
+          var rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+       	  rect.x.baseVal.value = bbox.x;
+          rect.y.baseVal.value = bbox.y;
+          rect.width.baseVal.value = bbox.width;
+          rect.height.baseVal.value = bbox.height;
+          rect.setAttribute('class', className);
+          var parentOfText = node.parentNode.parentNode;
+          addItems.push({
+              "parent": node.parentNode,
+              "target": rect});
+        }
+      }
+    }
+    else if (!jQuery(node).is("button, select, textarea")) {
+      jQuery.each(node.childNodes, function() {
+        highlight(this, addItems);
+      });
+    }
+  }
+  var addItems = [];
+  var result = this.each(function() {
+    highlight(this, addItems);
+  });
+  for (var i = 0; i < addItems.length; ++i) {
+    jQuery(addItems[i].parent).before(addItems[i].target);
+  }
+  return result;
+};
+
+/*
+ * backward compatibility for jQuery.browser
+ * This will be supported until firefox bug is fixed.
+ */
+if (!jQuery.browser) {
+  jQuery.uaMatch = function(ua) {
+    ua = ua.toLowerCase();
+
+    var match = /(chrome)[ \/]([\w.]+)/.exec(ua) ||
+      /(webkit)[ \/]([\w.]+)/.exec(ua) ||
+      /(opera)(?:.*version|)[ \/]([\w.]+)/.exec(ua) ||
+      /(msie) ([\w.]+)/.exec(ua) ||
+      ua.indexOf("compatible") < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec(ua) ||
+      [];
+
+    return {
+      browser: match[ 1 ] || "",
+      version: match[ 2 ] || "0"
+    };
+  };
+  jQuery.browser = {};
+  jQuery.browser[jQuery.uaMatch(navigator.userAgent).browser] = true;
+}
+
+/**
+ * Small JavaScript module for the documentation.
+ */
+var Documentation = {
+
+  init : function() {
+    this.fixFirefoxAnchorBug();
+    this.highlightSearchWords();
+    this.initIndexTable();
+    
+  },
+
+  /**
+   * i18n support
+   */
+  TRANSLATIONS : {},
+  PLURAL_EXPR : function(n) { return n === 1 ? 0 : 1; },
+  LOCALE : 'unknown',
+
+  // gettext and ngettext don't access this so that the functions
+  // can safely bound to a different name (_ = Documentation.gettext)
+  gettext : function(string) {
+    var translated = Documentation.TRANSLATIONS[string];
+    if (typeof translated === 'undefined')
+      return string;
+    return (typeof translated === 'string') ? translated : translated[0];
+  },
+
+  ngettext : function(singular, plural, n) {
+    var translated = Documentation.TRANSLATIONS[singular];
+    if (typeof translated === 'undefined')
+      return (n == 1) ? singular : plural;
+    return translated[Documentation.PLURALEXPR(n)];
+  },
+
+  addTranslations : function(catalog) {
+    for (var key in catalog.messages)
+      this.TRANSLATIONS[key] = catalog.messages[key];
+    this.PLURAL_EXPR = new Function('n', 'return +(' + catalog.plural_expr + ')');
+    this.LOCALE = catalog.locale;
+  },
+
+  /**
+   * add context elements like header anchor links
+   */
+  addContextElements : function() {
+    $('div[id] > :header:first').each(function() {
+      $('<a class="headerlink">\u00B6</a>').
+      attr('href', '#' + this.id).
+      attr('title', _('Permalink to this headline')).
+      appendTo(this);
+    });
+    $('dt[id]').each(function() {
+      $('<a class="headerlink">\u00B6</a>').
+      attr('href', '#' + this.id).
+      attr('title', _('Permalink to this definition')).
+      appendTo(this);
+    });
+  },
+
+  /**
+   * workaround a firefox stupidity
+   * see: https://bugzilla.mozilla.org/show_bug.cgi?id=645075
+   */
+  fixFirefoxAnchorBug : function() {
+    if (document.location.hash && $.browser.mozilla)
+      window.setTimeout(function() {
+        document.location.href += '';
+      }, 10);
+  },
+
+  /**
+   * highlight the search words provided in the url in the text
+   */
+  highlightSearchWords : function() {
+    var params = $.getQueryParameters();
+    var terms = (params.highlight) ? params.highlight[0].split(/\s+/) : [];
+    if (terms.length) {
+      var body = $('div.body');
+      if (!body.length) {
+        body = $('body');
+      }
+      window.setTimeout(function() {
+        $.each(terms, function() {
+          body.highlightText(this.toLowerCase(), 'highlighted');
+        });
+      }, 10);
+      $('<p class="highlight-link"><a href="javascript:Documentation.' +
+        'hideSearchWords()">' + _('Hide Search Matches') + '</a></p>')
+          .appendTo($('#searchbox'));
+    }
+  },
+
+  /**
+   * init the domain index toggle buttons
+   */
+  initIndexTable : function() {
+    var togglers = $('img.toggler').click(function() {
+      var src = $(this).attr('src');
+      var idnum = $(this).attr('id').substr(7);
+      $('tr.cg-' + idnum).toggle();
+      if (src.substr(-9) === 'minus.png')
+        $(this).attr('src', src.substr(0, src.length-9) + 'plus.png');
+      else
+        $(this).attr('src', src.substr(0, src.length-8) + 'minus.png');
+    }).css('display', '');
+    if (DOCUMENTATION_OPTIONS.COLLAPSE_INDEX) {
+        togglers.click();
+    }
+  },
+
+  /**
+   * helper function to hide the search marks again
+   */
+  hideSearchWords : function() {
+    $('#searchbox .highlight-link').fadeOut(300);
+    $('span.highlighted').removeClass('highlighted');
+  },
+
+  /**
+   * make the url absolute
+   */
+  makeURL : function(relativeURL) {
+    return DOCUMENTATION_OPTIONS.URL_ROOT + '/' + relativeURL;
+  },
+
+  /**
+   * get the current relative url
+   */
+  getCurrentURL : function() {
+    var path = document.location.pathname;
+    var parts = path.split(/\//);
+    $.each(DOCUMENTATION_OPTIONS.URL_ROOT.split(/\//), function() {
+      if (this === '..')
+        parts.pop();
+    });
+    var url = parts.join('/');
+    return path.substring(url.lastIndexOf('/') + 1, path.length - 1);
+  },
+
+  initOnKeyListeners: function() {
+    $(document).keyup(function(event) {
+      var activeElementType = document.activeElement.tagName;
+      // don't navigate when in search box or textarea
+      if (activeElementType !== 'TEXTAREA' && activeElementType !== 'INPUT' && activeElementType !== 'SELECT') {
+        switch (event.keyCode) {
+          case 37: // left
+            var prevHref = $('link[rel="prev"]').prop('href');
+            if (prevHref) {
+              window.location.href = prevHref;
+              return false;
+            }
+          case 39: // right
+            var nextHref = $('link[rel="next"]').prop('href');
+            if (nextHref) {
+              window.location.href = nextHref;
+              return false;
+            }
+        }
+      }
+    });
+  }
+};
+
+// quick alias for translations
+_ = Documentation.gettext;
+
+$(document).ready(function() {
+  Documentation.init();
+});∂[g–.t      ^ï À^ï ÃAè,¬^ï Ã   4    :https://docs.dash.org/vi/latest/_static/doctools.js necko:classified 1 strongly-framed 1 security-info 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 request-method GET request-Accept-Encoding gzip, deflate, br response-head HTTP/2 200 OK
+server: nginx/1.10.3 (Ubuntu)
+date: Tue, 14 Apr 2020 00:16:13 GMT
+content-type: application/javascript
+content-md5: lD3dva7qZs7VKMNvYC+TPw==
+vary: Accept-Encoding
+x-ms-request-id: 146a83ec-101e-00a1-1cf1-1193a0000000
+x-ms-version: 2009-09-19
+x-ms-meta-mtime: 2019-01-14T06:21:37.121587666Z
+x-ms-lease-status: unlocked
+x-ms-blob-type: BlockBlob
+access-control-allow-origin: *
+x-served: Nginx-Proxito-Sendfile
+x-backend: web03
+strict-transport-security: max-age=31536000;
+x-rtd-project: dash-vietnamese
+x-rtd-version: latest
+x-rtd-path: /proxito/media/html/dash-vietnamese/latest/_static/doctools.js
+x-rtd-domain: dash-docs.readthedocs.io
+x-rtd-version-method: rtdheader
+X-Firefox-Spdy: h2
+ original-response-headers server: nginx/1.10.3 (Ubuntu)
+date: Tue, 14 Apr 2020 00:16:13 GMT
+content-type: application/javascript
+content-md5: lD3dva7qZs7VKMNvYC+TPw==
+vary: Accept-Encoding
+x-ms-request-id: 146a83ec-101e-00a1-1cf1-1193a0000000
+x-ms-version: 2009-09-19
+x-ms-meta-mtime: 2019-01-14T06:21:37.121587666Z
+x-ms-lease-status: unlocked
+x-ms-blob-type: BlockBlob
+access-control-allow-origin: *
+x-served: Nginx-Proxito-Sendfile
+x-backend: web03
+strict-transport-security: max-age=31536000;
+x-rtd-project: dash-vietnamese
+x-rtd-version: latest
+x-rtd-path: /proxito/media/html/dash-vietnamese/latest/_static/doctools.js
+x-rtd-domain: dash-docs.readthedocs.io
+x-rtd-version-method: rtdheader
+X-Firefox-Spdy: h2
+ ctid 2 uncompressed-len 0 net-response-time-onstart 1232 net-response-time-onstop 1233   $
